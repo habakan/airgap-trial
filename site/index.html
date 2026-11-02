@@ -446,8 +446,8 @@ if (usingBitHanko) {
   const note = document.getElementById("signer-note");
   note.hidden = false;
   note.textContent = signerLanguage === "en"
-    ? "Choose \"Use the test key\" in BitHanko. It only signs for wallet A, with the published test words."
-    : "BitHankoでは「テスト用の鍵を使う」を選びます。署名できるのは公開テスト単語のウォレット A だけです。";
+    ? "In BitHanko, tap \"Scan your backup QR\" and move the phone so the SeedQR is inside the camera frame. Never use a real seed here."
+    : "BitHankoで「バックアップのQRを読み取る」を押し、スマホを動かしてSeedQRをカメラの枠に入れてください。本物のシードは絶対に使わないでください。";
 }
 signerFrame.src = usingBitHanko ? `bit-hanko/index.html?lang=${signerLanguage}` : "signer.html";
 const cameraBeam = document.getElementById("camera-beam");
@@ -1300,7 +1300,6 @@ function updateReceiveAddress() {
 }
 
 function selectDemoWallet(index, { automatic = false } = {}) {
-  if (usingBitHanko && index !== 0) return;
   if (!automatic) demoSelectionTouched = true;
   if (seedMode !== "demo") return;
   if (wallet && index !== selectedDemoWalletIndex) {
@@ -2267,13 +2266,7 @@ try {
   demoWalletButtons.forEach((button, index) => button.addEventListener("click", () => selectDemoWallet(index)));
   amountInput.addEventListener("input", () => { amountEdited = true; });
   feeRateInput.addEventListener("input", setSuggestedDemoAmount);
-  // The BitHanko demo only takes the published test words, which are wallet A
-  if (usingBitHanko) {
-    selectedDemoWalletIndex = 0;
-    demoWalletButtons[1].disabled = true;
-    setSeedSettingsLocked(true);
-    connectBitHankoDrag();
-  }
+  if (usingBitHanko) connectBitHankoDrag();
   selectDemoWallet(selectedDemoWalletIndex, { automatic: true });
   const parserBytes = await fetch("./parser.wasm").then(r => {
     if (!r.ok) throw new Error("parser.wasm を読み込めません。");
