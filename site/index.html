@@ -137,10 +137,10 @@ button:disabled { opacity:.45; cursor:default; }
 #phone-bar[hidden] { display:none; }
 #hww-window.dragging #phone-bar { cursor:grabbing; }
 #phone-lens { width:14px; height:14px; margin-right:12px; border:3px solid #444; border-radius:50%; background:#26395c; box-sizing:border-box; }
-.signer-switch { display:flex; gap:4px; justify-content:center; margin-bottom:8px; font-size:13px; }
-.signer-switch a { padding:5px 14px; border:1px solid #777; border-radius:6px; color:#222; text-decoration:none; background:#fff; }
+.page-controls { display:flex; flex:none; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.signer-switch a { padding:6px 10px; border-radius:6px; color:var(--fg); font-size:12px; text-decoration:none; }
 .signer-note { max-width:410px; margin:0 auto 8px; padding:6px 10px; border-radius:6px; font-size:12px; line-height:1.5; text-align:center; color:#222; background:#fff; }
-.signer-switch a[aria-current="page"] { background:#f7931a; border-color:#f7931a; color:#111; font-weight:600; }
+.signer-switch a[aria-current="page"] { background:var(--accent); color:var(--accent-fg); }
 #hww-window { min-width:0; position:relative; z-index:3; }
 #hww-window.dragging { z-index:3; }
 #receive-layout { display:flex; flex:1; align-items:center; justify-content:center; min-height:0; margin-top:5px; }
@@ -164,7 +164,7 @@ button:disabled { opacity:.45; cursor:default; }
 @media (max-width:1080px) { .flow { grid-template-columns:1fr; } .wallet-laptop { width:min(100%,860px); margin:auto; } }
 @media (max-width:520px) { .wallet-app { height:540px; } .titlebar { gap:6px; padding:0 8px; } .titlebar > span:nth-child(2) { font-size:11px; } .network-badge { padding:3px 6px; font-size:10px; } .wallet-body { flex-direction:column; } .wallet-nav { flex:0 0 auto; flex-direction:row; gap:2px; padding:5px 4px; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); } .wallet-nav button { min-width:62px; min-height:42px; align-items:center; padding:4px 7px; text-align:center; } .wallet-nav button[aria-current="page"] { border-left:0; border-bottom:3px solid #347448; } .wallet-main { padding:8px; } .wallet-screen .wallet-qr-panel { padding:6px; } #signed-details { font-size:10px; } .wallet-receive-layout { grid-template-columns:minmax(0,1fr) 118px; } }
 @media (max-width:520px) { main { width:calc(100% - 12px); margin:6px auto 8px; padding:18px 10px 36px; } }
-@media (max-width:620px) { .page-heading { align-items:flex-start; flex-direction:column-reverse; gap:8px; } .language-switch { align-self:flex-end; } }
+@media (max-width:620px) { .page-heading { align-items:flex-start; flex-direction:column-reverse; gap:8px; } .page-controls { align-self:flex-end; } }
 @media (max-width:620px) { .onboarding { padding:12px; } .onboarding-header { align-items:flex-start; flex-direction:column; } .onboarding-steps { grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; } .onboarding-step { padding:7px; } }
 </style>
 </head>
@@ -173,9 +173,15 @@ button:disabled { opacity:.45; cursor:default; }
 <div class="page-heading">
   <div><h1>画面上で仮想AirGap取引を体験</h1>
   <p>画面上のウォレットと署名器を操作し、PSBTの作成・署名からSignetへのテスト送金まで体験できます。</p></div>
+  <div class="page-controls">
+  <nav class="language-switch signer-switch" aria-label="Signer">
+    <a href="?signer=pico" id="use-pico">Pico</a>
+    <a href="?signer=bit-hanko" id="use-bit-hanko">BitHanko</a>
+  </nav>
   <div class="language-switch" role="group" aria-label="表示言語">
     <button type="button" data-language="ja" aria-pressed="true">日本語</button>
     <button type="button" data-language="en" aria-pressed="false">English</button>
+  </div>
   </div>
 </div>
 <div class="warning">このページはsignet専用です。公開デモウォレットは誰でも使えます。実際の価値があるコインや秘密鍵は絶対に使わないでください。UTXO照会とブロードキャストにはmempool.space signet APIを使います。</div>
@@ -328,10 +334,6 @@ button:disabled { opacity:.45; cursor:default; }
   </form>
   </div>
   <section class="hww-window" id="hww-window" aria-label="bitwasm-signer-pico hardware wallet">
-    <nav class="signer-switch" aria-label="Signer">
-      <a href="?signer=pico" id="use-pico">Pico</a>
-      <a href="?signer=bit-hanko" id="use-bit-hanko">BitHanko</a>
-    </nav>
     <p class="signer-note" id="signer-note" hidden></p>
     <div id="phone-bar" role="group" tabindex="0" hidden><span id="phone-lens"></span><span id="phone-bar-label"></span></div>
     <iframe id="signer" title="Signer"></iframe>
