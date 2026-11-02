@@ -432,6 +432,14 @@ const usingBitHanko = new URLSearchParams(location.search).get("signer") === "bi
 const bitHankoModule = {
   ready: true,
   cameraQrId: "seed-qr",
+  // BitHanko fixes its language when it starts, so changing it restarts the app
+  setLanguage(language) {
+    if (language === signerLanguage) return;
+    signerLanguage = language;
+    showBitHankoNote();
+    showPhoneDragHint();
+    signerFrame.src = bitHankoUrl();
+  },
   setCameraStatus(text) {
     const inside = text.includes("照準内");
     document.getElementById("phone-bar-label").textContent = pageLanguage === "en"
@@ -444,14 +452,16 @@ signerFrame.classList.toggle("phone", usingBitHanko);
 signerFrame.addEventListener("load", () => { if (usingBitHanko) connectBitHankoCamera(); });
 let signerLanguage = "ja";
 try { signerLanguage = localStorage.getItem("bitwasm-language") === "en" ? "en" : "ja"; } catch {}
-if (usingBitHanko) {
+function bitHankoUrl() { return `bit-hanko/index.html?lang=${signerLanguage}`; }
+function showBitHankoNote() {
   const note = document.getElementById("signer-note");
   note.hidden = false;
   note.textContent = signerLanguage === "en"
     ? "In BitHanko, tap \"Scan your backup QR\" and move the phone so the SeedQR is inside the camera frame. Never use a real seed here."
     : "BitHankoで「バックアップのQRを読み取る」を押し、スマホを動かしてSeedQRをカメラの枠に入れてください。本物のシードは絶対に使わないでください。";
 }
-signerFrame.src = usingBitHanko ? `bit-hanko/index.html?lang=${signerLanguage}` : "signer.html";
+if (usingBitHanko) showBitHankoNote();
+signerFrame.src = usingBitHanko ? bitHankoUrl() : "signer.html";
 const cameraBeam = document.getElementById("camera-beam");
 const beamCone = document.getElementById("beam-cone");
 const beamAxis = document.getElementById("beam-axis");
@@ -1155,12 +1165,15 @@ function signerModule() {
 }
 
 // BitHanko asks for a camera, and sees whatever part of the wallet's QR is inside the aiming frame
+let bitHankoCameraTimer;
 function connectBitHankoCamera() {
+  clearInterval(bitHankoCameraTimer);
+  setHwwCameraScanning(false);
   const canvas = Object.assign(document.createElement("canvas"), { width: 640, height: 480 });
   const context = canvas.getContext("2d");
   context.imageSmoothingEnabled = false;
   let track = null;
-  setInterval(() => {
+  bitHankoCameraTimer = setInterval(() => {
     if (!track) return;
     if (track.readyState === "ended") {
       track = null;
@@ -1191,13 +1204,13 @@ function connectBitHankoCamera() {
 
 function showPhoneDragHint() {
   document.getElementById("phone-bar-label").textContent = pageLanguage === "en" ? "Drag here to move" : "ここをドラッグして移動";
+  document.getElementById("phone-bar").setAttribute("aria-label", pageLanguage === "en" ? "Drag or use the arrow keys to move the phone" : "ドラッグまたは矢印キーでスマホを移動");
 }
 
 function connectBitHankoDrag() {
   const bar = document.getElementById("phone-bar");
   hwwWindow.setAttribute("aria-label", "BitHanko");
   bar.hidden = false;
-  bar.setAttribute("aria-label", pageLanguage === "en" ? "Drag or use the arrow keys to move the phone" : "ドラッグまたは矢印キーでスマホを移動");
   showPhoneDragHint();
   hwwWindow.addEventListener("pointerdown", event => {
     if (!event.target.closest("#phone-bar, #signer")) return;
