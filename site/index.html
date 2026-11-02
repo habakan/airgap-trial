@@ -132,6 +132,11 @@ button:disabled { opacity:.45; cursor:default; }
 #source { overflow-wrap:anywhere; }
 #source { padding:8px; font-size:12px; }
 #signer { width:100%; height:740px; display:block; border:0; background:transparent; color-scheme:light dark; }
+#signer.phone { width:390px; max-width:100%; height:844px; margin:auto; border:10px solid #111; border-radius:36px; box-sizing:content-box; background:#fff; }
+.signer-switch { display:flex; gap:4px; justify-content:center; margin-bottom:8px; font-size:13px; }
+.signer-switch a { padding:5px 14px; border:1px solid #777; border-radius:6px; color:#222; text-decoration:none; background:#fff; }
+.signer-note { max-width:410px; margin:0 auto 8px; padding:6px 10px; border-radius:6px; font-size:12px; line-height:1.5; text-align:center; color:#222; background:#fff; }
+.signer-switch a[aria-current="page"] { background:#f7931a; border-color:#f7931a; color:#111; font-weight:600; }
 #hww-window { min-width:0; position:relative; z-index:3; }
 #hww-window.dragging { z-index:3; }
 #receive-layout { display:flex; flex:1; align-items:center; justify-content:center; min-height:0; margin-top:5px; }
@@ -319,7 +324,12 @@ button:disabled { opacity:.45; cursor:default; }
   </form>
   </div>
   <section class="hww-window" id="hww-window" aria-label="bitwasm-signer-pico hardware wallet">
-    <iframe id="signer" src="signer.html" title="bitwasm-signer-pico hardware wallet"></iframe>
+    <nav class="signer-switch" aria-label="Signer">
+      <a href="?signer=pico" id="use-pico">Pico</a>
+      <a href="?signer=bit-hanko" id="use-bit-hanko">BitHanko</a>
+    </nav>
+    <p class="signer-note" id="signer-note" hidden></p>
+    <iframe id="signer" title="Signer"></iframe>
   </section>
   <div id="wallet-camera-frame" aria-hidden="true"></div>
 </div>
@@ -410,6 +420,22 @@ const destinationInput = document.getElementById("destination");
 const amountInput = document.getElementById("amount");
 const feeRateInput = document.getElementById("feerate");
 const signerFrame = document.getElementById("signer");
+const usingBitHanko = new URLSearchParams(location.search).get("signer") === "bit-hanko";
+// BitHanko has no Module; every call the page makes on it is optional, so these two fields are enough
+const bitHankoModule = { ready: true, cameraQrId: "seed-qr" };
+document.getElementById(usingBitHanko ? "use-bit-hanko" : "use-pico").setAttribute("aria-current", "page");
+signerFrame.classList.toggle("phone", usingBitHanko);
+signerFrame.addEventListener("load", () => { if (usingBitHanko) connectBitHankoCamera(); });
+let signerLanguage = "ja";
+try { signerLanguage = localStorage.getItem("bitwasm-language") === "en" ? "en" : "ja"; } catch {}
+if (usingBitHanko) {
+  const note = document.getElementById("signer-note");
+  note.hidden = false;
+  note.textContent = signerLanguage === "en"
+    ? "Choose \"Use the test key\" in BitHanko. It only signs for wallet A, with the published test words."
+    : "BitHankoでは「テスト用の鍵を使う」を選びます。署名できるのは公開テスト単語のウォレット A だけです。";
+}
+signerFrame.src = usingBitHanko ? `bit-hanko/index.html?lang=${signerLanguage}` : "signer.html";
 const cameraBeam = document.getElementById("camera-beam");
 const beamCone = document.getElementById("beam-cone");
 const beamAxis = document.getElementById("beam-axis");
@@ -1108,7 +1134,47 @@ function pausePsbtQrAnimation() {
 }
 
 function signerModule() {
+  if (usingBitHanko) return bitHankoModule;
   return signerFrame.contentWindow?.Module || null;
+}
+
+// BitHanko asks for a camera, and gets the QR the wallet is showing instead
+function connectBitHankoCamera() {
+  const canvas = Object.assign(document.createElement("canvas"), { width: 640, height: 480 });
+  const context = canvas.getContext("2d");
+  context.imageSmoothingEnabled = false;
+  setInterval(() => {
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, 640, 480);
+    const qr = document.getElementById(cameraQrId);
+    if (qr?.width && (qr.tagName === "CANVAS" || qr.complete)) context.drawImage(qr, 100, 20, 440, 440);
+  }, 100);
+  signerFrame.contentWindow.navigator.mediaDevices.getUserMedia = async () => canvas.captureStream(10);
+}
+
+function bitHankoSignHint() {
+  return pageLanguage === "en"
+    ? "In BitHanko, tap \"Sign a transaction\" to read this QR. After signing, press \"Scan signed PSBT\" here."
+    : "BitHankoで「取引に署名する」を押すと、このQRを読み取ります。署名したら、こちらの「署名済みPSBTを読み取る」を押してください。";
+}
+
+// Draws the signed QR BitHanko is showing onto the wallet's decode canvas
+async function drawBitHankoQr() {
+  const svg = signerFrame.contentDocument?.querySelector(".qr-card svg");
+  if (!svg) return false;
+  const copy = svg.cloneNode(true);
+  copy.setAttribute("width", 480);
+  copy.setAttribute("height", 480);
+  const image = new Image();
+  image.src = "data:image/svg+xml," + encodeURIComponent(new XMLSerializer().serializeToString(copy));
+  await image.decode();
+  receiveDecodeContext.fillStyle = "#fff";
+  receiveDecodeContext.fillRect(0, 0, receiveDecodeCanvas.width, receiveDecodeCanvas.height);
+  receiveDecodeContext.drawImage(image, 80, 0, 480, 480);
+  receiveContext.fillStyle = "#fff";
+  receiveContext.fillRect(0, 0, receivePreview.width, receivePreview.height);
+  receiveContext.drawImage(image, 40, 0, 240, 240);
+  return true;
 }
 
 function setSeedSettingsLocked(locked) {
@@ -1172,6 +1238,7 @@ function updateReceiveAddress() {
 }
 
 function selectDemoWallet(index, { automatic = false } = {}) {
+  if (usingBitHanko && index !== 0) return;
   if (!automatic) demoSelectionTouched = true;
   if (seedMode !== "demo") return;
   if (wallet && index !== selectedDemoWalletIndex) {
@@ -1435,7 +1502,7 @@ function renderOnboarding() {
     : screen === "wallet-screen-broadcast" ? "送金先・金額・手数料を確認し、問題がなければブロードキャストしてください。"
       : "署名済み取引です。ブロードキャスト画面で内容を確認してください。";
   else if (activeTransaction && screen === "wallet-screen-scan-signed") instruction = "Signerで署名済みPSBTを表示し、Walletカメラで読み取ってください。";
-  else if (activeTransaction) instruction = signerSeedLoaded
+  else if (activeTransaction) instruction = usingBitHanko ? bitHankoSignHint() : signerSeedLoaded
     ? "HWWで取引内容を確認して署名し、署名済みPSBTをWalletカメラで読み取ります。"
     : "PSBT作成済みです。Signerで選択中のSeedQRを読み込み、続けて「Scan PSBT」を選んでください。";
   else if (screen === "wallet-screen-receive") instruction = "受取用のアドレスとQRを表示しています。";
@@ -1811,18 +1878,26 @@ async function scanSignedFrame(seen = new Set()) {
       receiveScanTimer = setTimeout(() => scanSignedFrame(seen), 120);
       return;
     }
-    const captured = module.captureParentView?.(walletCameraFrameRect(), receivePreview) || false;
-    if (!captured && !module?.parentSceneFailed?.()) {
-      scanStatus.textContent = "PCカメラ映像を準備しています。映像はWalletの位置に追従します。";
-      receiveScanTimer = setTimeout(() => scanSignedFrame(seen), 120);
-      return;
-    }
-    if (!captured) {
-      stopWalletScan(`PCカメラ映像を取得できません: ${module.parentSceneError?.() || "ページ表示の合成に失敗しました。"}`);
-      return;
-    }
     receiveDecodeContext.imageSmoothingEnabled = false;
-    if (!drawSignerCameraFrame(receiveDecodeCanvas)) throw new Error("Signer画面をPCカメラ範囲から取得できません。");
+    if (usingBitHanko) {
+      if (!await drawBitHankoQr()) {
+        scanStatus.textContent = pageLanguage === "en" ? "Waiting for BitHanko to show the signed QR." : "BitHankoが署名済みQRを表示するのを待っています。";
+        receiveScanTimer = setTimeout(() => scanSignedFrame(seen), 120);
+        return;
+      }
+    } else {
+      const captured = module.captureParentView?.(walletCameraFrameRect(), receivePreview) || false;
+      if (!captured && !module?.parentSceneFailed?.()) {
+        scanStatus.textContent = "PCカメラ映像を準備しています。映像はWalletの位置に追従します。";
+        receiveScanTimer = setTimeout(() => scanSignedFrame(seen), 120);
+        return;
+      }
+      if (!captured) {
+        stopWalletScan(`PCカメラ映像を取得できません: ${module.parentSceneError?.() || "ページ表示の合成に失敗しました。"}`);
+        return;
+      }
+      if (!drawSignerCameraFrame(receiveDecodeCanvas)) throw new Error("Signer画面をPCカメラ範囲から取得できません。");
+    }
     let text = null;
     if (qrDetector) {
       const codes = await qrDetector.detect(receiveDecodeCanvas).catch(() => []);
@@ -2124,6 +2199,12 @@ try {
   demoWalletButtons.forEach((button, index) => button.addEventListener("click", () => selectDemoWallet(index)));
   amountInput.addEventListener("input", () => { amountEdited = true; });
   feeRateInput.addEventListener("input", setSuggestedDemoAmount);
+  // The BitHanko demo only takes the published test words, which are wallet A
+  if (usingBitHanko) {
+    selectedDemoWalletIndex = 0;
+    demoWalletButtons[1].disabled = true;
+    setSeedSettingsLocked(true);
+  }
   selectDemoWallet(selectedDemoWalletIndex, { automatic: true });
   const parserBytes = await fetch("./parser.wasm").then(r => {
     if (!r.ok) throw new Error("parser.wasm を読み込めません。");
@@ -2270,7 +2351,7 @@ try {
       psbtQrShouldPlay = true;
       result.hidden = false;
       qrTitle.textContent = "Unsigned PSBT · Animated QR";
-      qrHint.textContent = signerSeedLoaded
+      qrHint.textContent = usingBitHanko ? bitHankoSignHint() : signerSeedLoaded
         ? translateUiText("署名器で「Scan PSBT」を選ぶと、このQRを仮想カメラで読み取ります。", pageLanguage)
         : translateUiText("SignerでSeedQRを読み込んでから「Scan PSBT」を選び、Walletカメラの枠に画面を合わせてください。", pageLanguage);
       qrActions.hidden = false;
@@ -2279,7 +2360,7 @@ try {
       const module = signerModule();
       cameraQrId = "qr";
       if (module) module.cameraQrId = cameraQrId;
-      psbtStatus.textContent = signerSeedLoaded
+      psbtStatus.textContent = usingBitHanko ? bitHankoSignHint() : signerSeedLoaded
         ? translateUiText("署名器で「Scan PSBT」を選び、Walletカメラの枠に署名器の画面を合わせてください。", pageLanguage)
         : translateUiText("SignerでSeedQRを読み込んでから「Scan PSBT」を選び、Walletカメラの枠に画面を合わせてください。", pageLanguage);
       showWalletScreen("wallet-screen-psbt");

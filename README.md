@@ -2,7 +2,7 @@
 
 Try an air-gapped Bitcoin transaction in the browser, on signet, with a public test seed. Never use it for coins with value.
 
-The page is a demo wallet with a signer beside it. The two exchange the transaction only as QR codes.
+The page is a demo wallet with a signer beside it, either Pico or BitHanko. The two exchange the transaction only as QR codes. The BitHanko demo itself is not modified: the page answers its camera request with the QR the wallet is showing, and decodes the signed QR it displays.
 
 ## Layout
 
@@ -10,7 +10,7 @@ The page is a demo wallet with a signer beside it. The two exchange the transact
 |---|---|
 | `site/index.html` | The trial page |
 | `vendor/bitwasm-signer-pico` | Firmware built for the browser, embedded as the signer |
-| `vendor/bit-hanko` | BitHanko, built by `make hanko`. Not connected to the trial page and not in `dist` yet |
+| `vendor/bit-hanko` | The BitHanko testnet demo, embedded as the other signer |
 
 Only testnet builds belong in `dist`. The installable BitHanko web app stays out, because it holds real seeds.
 
