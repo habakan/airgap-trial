@@ -1,0 +1,6 @@
+[submodule "vendor/bitwasm-signer-pico"]
+	path = vendor/bitwasm-signer-pico
+	url = https://github.com/bitwasm-project/bitwasm-signer-pico.git
+[submodule "vendor/bit-hanko"]
+	path = vendor/bit-hanko
+	url = https://github.com/bitwasm-project/bit-hanko.git
