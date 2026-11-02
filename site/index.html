@@ -132,7 +132,10 @@ button:disabled { opacity:.45; cursor:default; }
 #source { overflow-wrap:anywhere; }
 #source { padding:8px; font-size:12px; }
 #signer { width:100%; height:740px; display:block; border:0; background:transparent; color-scheme:light dark; }
-#signer.phone { width:390px; max-width:100%; height:844px; margin:auto; border:10px solid #111; border-radius:36px; box-sizing:content-box; background:#fff; }
+#signer.phone { width:390px; max-width:100%; height:844px; margin:auto; border:10px solid #111; border-top:0; border-radius:0 0 36px 36px; box-sizing:content-box; background:#fff; }
+#phone-bar { display:flex; align-items:center; width:410px; max-width:100%; height:34px; margin:auto; padding-left:24px; box-sizing:border-box; border-radius:36px 36px 0 0; background:#111; color:#bbb; font-size:11px; cursor:grab; touch-action:none; user-select:none; }
+#hww-window.dragging #phone-bar { cursor:grabbing; }
+#phone-lens { width:14px; height:14px; margin-right:12px; border:3px solid #444; border-radius:50%; background:#26395c; box-sizing:border-box; }
 .signer-switch { display:flex; gap:4px; justify-content:center; margin-bottom:8px; font-size:13px; }
 .signer-switch a { padding:5px 14px; border:1px solid #777; border-radius:6px; color:#222; text-decoration:none; background:#fff; }
 .signer-note { max-width:410px; margin:0 auto 8px; padding:6px 10px; border-radius:6px; font-size:12px; line-height:1.5; text-align:center; color:#222; background:#fff; }
@@ -329,6 +332,7 @@ button:disabled { opacity:.45; cursor:default; }
       <a href="?signer=bit-hanko" id="use-bit-hanko">BitHanko</a>
     </nav>
     <p class="signer-note" id="signer-note" hidden></p>
+    <div id="phone-bar" role="group" tabindex="0" hidden><span id="phone-lens"></span><span id="phone-bar-label"></span></div>
     <iframe id="signer" title="Signer"></iframe>
   </section>
   <div id="wallet-camera-frame" aria-hidden="true"></div>
@@ -422,7 +426,16 @@ const feeRateInput = document.getElementById("feerate");
 const signerFrame = document.getElementById("signer");
 const usingBitHanko = new URLSearchParams(location.search).get("signer") === "bit-hanko";
 // BitHanko has no Module; every call the page makes on it is optional, so these two fields are enough
-const bitHankoModule = { ready: true, cameraQrId: "seed-qr" };
+const bitHankoModule = {
+  ready: true,
+  cameraQrId: "seed-qr",
+  setCameraStatus(text) {
+    const inside = text.includes("照準内");
+    document.getElementById("phone-bar-label").textContent = pageLanguage === "en"
+      ? inside ? "The QR is inside the camera frame" : "Move the phone until the QR is inside the frame"
+      : inside ? "QRがカメラの枠内です" : "スマホを動かしてQRを枠に入れてください";
+  },
+};
 document.getElementById(usingBitHanko ? "use-bit-hanko" : "use-pico").setAttribute("aria-current", "page");
 signerFrame.classList.toggle("phone", usingBitHanko);
 signerFrame.addEventListener("load", () => { if (usingBitHanko) connectBitHankoCamera(); });
@@ -1138,24 +1151,72 @@ function signerModule() {
   return signerFrame.contentWindow?.Module || null;
 }
 
-// BitHanko asks for a camera, and gets the QR the wallet is showing instead
+// BitHanko asks for a camera, and sees whatever part of the wallet's QR is inside the aiming frame
 function connectBitHankoCamera() {
   const canvas = Object.assign(document.createElement("canvas"), { width: 640, height: 480 });
   const context = canvas.getContext("2d");
   context.imageSmoothingEnabled = false;
+  let track = null;
   setInterval(() => {
+    if (!track) return;
+    if (track.readyState === "ended") {
+      track = null;
+      setHwwCameraScanning(false);
+      showPhoneDragHint();
+      return;
+    }
     context.fillStyle = "#fff";
     context.fillRect(0, 0, 640, 480);
-    const qr = document.getElementById(cameraQrId);
-    if (qr?.width && (qr.tagName === "CANVAS" || qr.complete)) context.drawImage(qr, 100, 20, 440, 440);
+    const qr = document.getElementById(cameraQrId), view = signerCameraGeometry()?.view;
+    const sourceWidth = qr?.naturalWidth || qr?.width, sourceHeight = qr?.naturalHeight || qr?.height;
+    if (!view || !sourceWidth || !sourceHeight || !qr.getClientRects().length) return;
+    const rect = qr.getBoundingClientRect();
+    const left = Math.max(rect.left, view.left), top = Math.max(rect.top, view.top);
+    const right = Math.min(rect.right, view.left + view.width), bottom = Math.min(rect.bottom, view.top + view.height);
+    if (right <= left || bottom <= top) return;
+    context.drawImage(qr, (left - rect.left) / rect.width * sourceWidth, (top - rect.top) / rect.height * sourceHeight,
+      (right - left) / rect.width * sourceWidth, (bottom - top) / rect.height * sourceHeight,
+      (left - view.left) * 2, (top - view.top) * 2, (right - left) * 2, (bottom - top) * 2);
   }, 100);
-  signerFrame.contentWindow.navigator.mediaDevices.getUserMedia = async () => canvas.captureStream(10);
+  signerFrame.contentWindow.navigator.mediaDevices.getUserMedia = async () => {
+    const stream = canvas.captureStream(10);
+    track = stream.getVideoTracks()[0];
+    setHwwCameraScanning(true);
+    return stream;
+  };
+}
+
+function showPhoneDragHint() {
+  document.getElementById("phone-bar-label").textContent = pageLanguage === "en" ? "Drag here to move" : "ここをドラッグして移動";
+}
+
+function connectBitHankoDrag() {
+  const bar = document.getElementById("phone-bar");
+  hwwWindow.setAttribute("aria-label", "BitHanko");
+  bar.hidden = false;
+  bar.setAttribute("aria-label", pageLanguage === "en" ? "Drag or use the arrow keys to move the phone" : "ドラッグまたは矢印キーでスマホを移動");
+  showPhoneDragHint();
+  hwwWindow.addEventListener("pointerdown", event => {
+    if (!event.target.closest("#phone-bar, #signer")) return;
+    hwwWindow.setPointerCapture(event.pointerId);
+    beginHwwDrag({ pointerId: event.pointerId, point: { x: event.clientX, y: event.clientY } });
+  });
+  hwwWindow.addEventListener("pointermove", event => moveHwwDrag({ pointerId: event.pointerId, point: { x: event.clientX, y: event.clientY } }));
+  hwwWindow.addEventListener("pointerup", endHwwDrag);
+  hwwWindow.addEventListener("pointercancel", endHwwDrag);
+  const steps = { ArrowLeft: [-16, 0], ArrowRight: [16, 0], ArrowUp: [0, -16], ArrowDown: [0, 16] };
+  bar.addEventListener("keydown", event => {
+    const step = steps[event.key];
+    if (!step) return;
+    event.preventDefault();
+    moveHwwByKey({ x: step[0], y: step[1] });
+  });
 }
 
 function bitHankoSignHint() {
   return pageLanguage === "en"
-    ? "In BitHanko, tap \"Sign a transaction\" to read this QR. After signing, press \"Scan signed PSBT\" here."
-    : "BitHankoで「取引に署名する」を押すと、このQRを読み取ります。署名したら、こちらの「署名済みPSBTを読み取る」を押してください。";
+    ? "In BitHanko, tap \"Sign a transaction\", then move the phone so this QR is inside its camera frame. After signing, press \"Scan signed PSBT\" here."
+    : "BitHankoで「取引に署名する」を押し、スマホを動かしてこのQRをカメラの枠に入れてください。署名したら、こちらの「署名済みPSBTを読み取る」を押してください。";
 }
 
 // Draws the signed QR BitHanko is showing onto the wallet's decode canvas
@@ -1541,6 +1602,11 @@ function signerLcdRect() {
 }
 
 function signerCameraGeometry() {
+  if (usingBitHanko) {
+    const rect = document.getElementById("phone-lens").getBoundingClientRect();
+    const lens = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    return { lens, view: { left: lens.x - 332, top: lens.y - 120, width: 320, height: 240 } };
+  }
   const lensElement = signerFrame.contentDocument?.getElementById("camera-lens");
   const child = signerFrame.contentWindow;
   if (!lensElement || !child?.innerWidth || !child.innerHeight) return null;
@@ -2204,6 +2270,7 @@ try {
     selectedDemoWalletIndex = 0;
     demoWalletButtons[1].disabled = true;
     setSeedSettingsLocked(true);
+    connectBitHankoDrag();
   }
   selectDemoWallet(selectedDemoWalletIndex, { automatic: true });
   const parserBytes = await fetch("./parser.wasm").then(r => {
