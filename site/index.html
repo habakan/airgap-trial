@@ -139,7 +139,6 @@ button:disabled { opacity:.45; cursor:default; }
 #phone-lens { width:14px; height:14px; margin-right:12px; border:3px solid #444; border-radius:50%; background:#26395c; box-sizing:border-box; }
 .page-controls { display:flex; flex:none; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .signer-switch a { padding:6px 10px; border-radius:6px; color:var(--fg); font-size:12px; text-decoration:none; }
-.signer-note { max-width:410px; margin:0 auto 8px; padding:6px 10px; border-radius:6px; font-size:12px; line-height:1.5; text-align:center; color:#222; background:#fff; }
 .signer-switch a[aria-current="page"] { background:var(--accent); color:var(--accent-fg); }
 #hww-window { min-width:0; position:relative; z-index:3; }
 #hww-window.dragging { z-index:3; }
@@ -334,7 +333,6 @@ button:disabled { opacity:.45; cursor:default; }
   </form>
   </div>
   <section class="hww-window" id="hww-window" aria-label="bitwasm-signer-pico hardware wallet">
-    <p class="signer-note" id="signer-note" hidden></p>
     <div id="phone-bar" role="group" tabindex="0" hidden><span id="phone-lens"></span><span id="phone-bar-label"></span></div>
     <iframe id="signer" title="Signer"></iframe>
   </section>
@@ -436,7 +434,6 @@ const bitHankoModule = {
   setLanguage(language) {
     if (language === signerLanguage) return;
     signerLanguage = language;
-    showBitHankoNote();
     showPhoneDragHint();
     signerFrame.src = bitHankoUrl();
   },
@@ -453,14 +450,6 @@ signerFrame.addEventListener("load", () => { if (usingBitHanko) connectBitHankoC
 let signerLanguage = "ja";
 try { signerLanguage = localStorage.getItem("bitwasm-language") === "en" ? "en" : "ja"; } catch {}
 function bitHankoUrl() { return `bit-hanko/index.html?lang=${signerLanguage}`; }
-function showBitHankoNote() {
-  const note = document.getElementById("signer-note");
-  note.hidden = false;
-  note.textContent = signerLanguage === "en"
-    ? "In BitHanko, tap \"Scan your backup QR\" and move the phone so the SeedQR is inside the camera frame. Never use a real seed here."
-    : "BitHankoで「バックアップのQRを読み取る」を押し、スマホを動かしてSeedQRをカメラの枠に入れてください。本物のシードは絶対に使わないでください。";
-}
-if (usingBitHanko) showBitHankoNote();
 signerFrame.src = usingBitHanko ? bitHankoUrl() : "signer.html";
 const cameraBeam = document.getElementById("camera-beam");
 const beamCone = document.getElementById("beam-cone");
