@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -178,8 +178,8 @@ button:disabled { opacity:.45; cursor:default; }
     <a href="?signer=bit-hanko" id="use-bit-hanko">BitHanko</a>
   </nav>
   <div class="language-switch" role="group" aria-label="表示言語">
-    <button type="button" data-language="ja" aria-pressed="true">日本語</button>
-    <button type="button" data-language="en" aria-pressed="false">English</button>
+    <button type="button" data-language="ja" aria-pressed="false">日本語</button>
+    <button type="button" data-language="en" aria-pressed="true">English</button>
   </div>
   </div>
 </div>
@@ -447,8 +447,8 @@ const bitHankoModule = {
 document.getElementById(usingBitHanko ? "use-bit-hanko" : "use-pico").setAttribute("aria-current", "page");
 signerFrame.classList.toggle("phone", usingBitHanko);
 signerFrame.addEventListener("load", () => { if (usingBitHanko) connectBitHankoCamera(); });
-let signerLanguage = "ja";
-try { signerLanguage = localStorage.getItem("bitwasm-language") === "en" ? "en" : "ja"; } catch {}
+let signerLanguage = "en";
+try { signerLanguage = localStorage.getItem("bitwasm-language") === "ja" ? "ja" : "en"; } catch {}
 function bitHankoUrl() { return `bit-hanko/index.html?lang=${signerLanguage}`; }
 signerFrame.src = usingBitHanko ? bitHankoUrl() : "signer.html";
 const cameraBeam = document.getElementById("camera-beam");
@@ -793,8 +793,8 @@ const translationMaps = {
   en: new Map(translationPairs.map(([ja, en]) => [ja, en])),
 };
 let pageLanguage = (() => {
-  try { return localStorage.getItem("bitwasm-language") === "en" ? "en" : "ja"; }
-  catch { return "ja"; }
+  try { return localStorage.getItem("bitwasm-language") === "ja" ? "ja" : "en"; }
+  catch { return "en"; }
 })();
 function translateUiText(value, language = pageLanguage) {
   const text = String(value), trimmed = text.trim();
