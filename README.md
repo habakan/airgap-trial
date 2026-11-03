@@ -29,14 +29,14 @@ The build fails if a local path ends up in `dist`.
 
 ## Walkthrough video
 
-`walkthrough/record.mjs` drives the trial with the Pico signer in headless Chromium and records it, from loading the test SeedQR to broadcasting on signet. Serve `dist` first, then:
+`walkthrough/record.mjs` drives the trial with the Pico or BitHanko signer in headless Chromium and records it, from loading the test SeedQR to scanning the signed transaction back into the wallet. It does not broadcast. Serve `dist` first, then:
 
 ```sh
 cd walkthrough && pnpm install
-CHROME=<path to a Chromium binary> node record.mjs http://localhost:8000/
+CHROME=<path to a Chromium binary> node record.mjs pico http://localhost:8000/   # or bit-hanko
 ```
 
-The video lands in `walkthrough/out/`. `BROADCAST=0` stops before broadcasting. The run needs a confirmed UTXO on test wallet A.
+The video lands in `walkthrough/out/`. The run needs a confirmed UTXO on one of the test wallets.
 
 ## Hosting
 
