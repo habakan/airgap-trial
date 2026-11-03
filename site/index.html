@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -178,8 +178,8 @@ button:disabled { opacity:.45; cursor:default; }
     <a href="?signer=bit-hanko" id="use-bit-hanko">BitHanko</a>
   </nav>
   <div class="language-switch" role="group" aria-label="表示言語">
-    <button type="button" data-language="ja" aria-pressed="true">日本語</button>
-    <button type="button" data-language="en" aria-pressed="false">English</button>
+    <button type="button" data-language="ja" aria-pressed="false">日本語</button>
+    <button type="button" data-language="en" aria-pressed="true">English</button>
   </div>
   </div>
 </div>
@@ -447,8 +447,8 @@ const bitHankoModule = {
 document.getElementById(usingBitHanko ? "use-bit-hanko" : "use-pico").setAttribute("aria-current", "page");
 signerFrame.classList.toggle("phone", usingBitHanko);
 signerFrame.addEventListener("load", () => { if (usingBitHanko) connectBitHankoCamera(); });
-let signerLanguage = "ja";
-try { signerLanguage = localStorage.getItem("bitwasm-language") === "en" ? "en" : "ja"; } catch {}
+let signerLanguage = "en";
+try { signerLanguage = localStorage.getItem("bitwasm-language") === "ja" ? "ja" : "en"; } catch {}
 function bitHankoUrl() { return `bit-hanko/index.html?lang=${signerLanguage}`; }
 signerFrame.src = usingBitHanko ? bitHankoUrl() : "signer.html";
 const cameraBeam = document.getElementById("camera-beam");
@@ -694,6 +694,10 @@ const translationPairs = [
   ["仮想カメラ · 照準内のQRを待機中", "Virtual camera · Waiting for QR in view"],
   ["仮想カメラ · 映像を読み込めません", "Virtual camera · Could not load the image"],
   ["仮想カメラ · 画面映像を利用できずQRのみ表示中", "Virtual camera · Screen view unavailable; showing QR only"],
+  ["仮想カメラ · 照準内の画面を表示します", "Virtual camera · Showing the screen in view"],
+  ["SeedQRが照準内 · 周囲の画面も映っています", "SeedQR in view · The screen around it shows too"],
+  ["PSBT QRが照準内 · 周囲の画面も映っています", "PSBT QR in view · The screen around it shows too"],
+  ["照準中 · ウォレットかHWWを動かしてください", "Aiming · Move the wallet or the HWW"],
   ["仮想カメラレンズ", "Virtual camera lens"],
   ["ハードウェアウォレットの画面", "Hardware wallet display"],
   ["方向パッド", "Directional pad"],
@@ -793,8 +797,8 @@ const translationMaps = {
   en: new Map(translationPairs.map(([ja, en]) => [ja, en])),
 };
 let pageLanguage = (() => {
-  try { return localStorage.getItem("bitwasm-language") === "en" ? "en" : "ja"; }
-  catch { return "ja"; }
+  try { return localStorage.getItem("bitwasm-language") === "ja" ? "ja" : "en"; }
+  catch { return "en"; }
 })();
 function translateUiText(value, language = pageLanguage) {
   const text = String(value), trimmed = text.trim();
