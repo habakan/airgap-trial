@@ -21,6 +21,7 @@ dist: pico hanko
 	S=$$(awk '$$2 == "build/parser.wasm" { print $$1 }' $(PICO)/checksums.txt); \
 	  sed "s/^const PARSER_SHA256 = \".*\";/const PARSER_SHA256 = \"$$S\";/" site/index.html > dist/index.html
 	cp -R $(HANKO)/dist-web/. dist/bit-hanko/
+	cp -R site/clips dist/
 	touch dist/.nojekyll
 	$(MAKE) check-paths
 

@@ -1,7 +1,7 @@
 // Records a walkthrough of the trial: loads the test seed and signs a PSBT over QR codes. It stops before broadcasting.
 // usage: CHROME=<chromium binary> node record.mjs pico|bit-hanko [base url]
 import { chromium } from "playwright-core";
-import { mkdirSync, renameSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 
 const SIGNER = process.argv[2] ?? "pico";
 if (!["pico", "bit-hanko"].includes(SIGNER)) throw new Error(`unknown signer: ${SIGNER}`);
@@ -11,6 +11,9 @@ const SIZE = { width: 1440, height: SIGNER === "pico" ? 1200 : 1300 };
 const browser = await chromium.launch({ executablePath: process.env.CHROME });
 const context = await browser.newContext({ viewport: SIZE, recordVideo: { dir: "out/raw", size: SIZE } });
 const page = await context.newPage();
+const videoStart = Date.now();
+// CLIPS=1 hides the captions and notes where each step ends up on screen, for the short clips in the page's guide
+const CLIPS = process.env.CLIPS === "1";
 const signer = page.frameLocator("#signer");
 const wait = ms => page.waitForTimeout(ms);
 
@@ -46,7 +49,7 @@ async function clickAt(x, y) {
   await showPointer(x, y, true); await page.mouse.down(); await wait(120);
   await page.mouse.up(); await showPointer(x, y, false);
 }
-const caption = text => page.evaluate(t => { document.getElementById("wt-caption").textContent = t; }, text);
+const caption = text => CLIPS ? null : page.evaluate(t => { document.getElementById("wt-caption").textContent = t; }, text);
 
 const rect = selector => page.evaluate(s => {
   const b = document.querySelector(s).getBoundingClientRect();
@@ -59,6 +62,31 @@ const inSigner = selector => page.evaluate(s => {
 const center = r => [r.x + r.w / 2, r.y + r.h / 2];
 const click = async r => clickAt(...center(await r));
 const key = async (k, pause = 1400) => { await click(inSigner(`.pad button[data-key="${k}"]`)); await wait(pause); };
+
+const clips = [];
+let clip = null;
+async function grow(...selectors) {
+  if (!clip) return;
+  for (const s of selectors) {
+    const r = await rect(s);
+    clip.box = clip.box ? {
+      x0: Math.min(clip.box.x0, r.x), y0: Math.min(clip.box.y0, r.y),
+      x1: Math.max(clip.box.x1, r.x + r.w), y1: Math.max(clip.box.y1, r.y + r.h),
+    } : { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h };
+  }
+}
+async function beginClip(name, ...selectors) {
+  clip = { name, start: (Date.now() - videoStart) / 1000 };
+  await grow(...selectors);
+}
+async function endClip(...selectors) {
+  await grow(...selectors);
+  const { x0, y0, x1, y1 } = clip.box, pad = 12;
+  const x = Math.max(0, Math.floor(x0 - pad)), y = Math.max(0, Math.floor(y0 - pad));
+  const w = Math.min(SIZE.width, Math.ceil(x1 + pad)) - x, h = Math.min(SIZE.height, Math.ceil(y1 + pad)) - y;
+  clips.push({ name: clip.name, start: clip.start, end: (Date.now() - videoStart) / 1000, crop: { x, y, w: w - w % 2, h: h - h % 2 } });
+  clip = null;
+}
 
 // Drags from the Pico's frame, away from its buttons, or from the phone's bar
 async function dragSignerBy(dx, dy) {
@@ -92,6 +120,7 @@ await wait(3500);
 await page.evaluate(() => scrollTo({ top: 300, behavior: "smooth" }));
 await wait(1500);
 
+await beginClip("seed");
 if (SIGNER === "pico") {
   await caption("1. On the signer, choose “Scan SeedQR”");
   await wait(1500);
@@ -105,19 +134,25 @@ await caption(`Move the ${SIGNER === "pico" ? "signer" : "phone"} so its camera 
 await aimSignerAt("#seed-qr");
 await wait(2500);
 if (SIGNER === "bit-hanko") {
-  await moveSignerTo(780, 380); await wait(500);
   await caption("Compare the fingerprint, then open the wallet");
   await tapPhone(signer.getByText("Open the wallet"));
 }
 await caption("The key is loaded on the signer. The wallet only knows the public side");
-await wait(3500);
+await wait(SIGNER === "pico" ? 2000 : 1000);
+await endClip("#hww-window", "#seed-qr");
+if (SIGNER === "bit-hanko") await moveSignerTo(780, 380);
+await wait(SIGNER === "pico" ? 1500 : 2500);
 
 await caption("2. In the wallet, create the transaction");
+await beginClip("create", "#wallet-laptop");
 await click(rect("#wallet-next-compose")); await wait(1500);
 await click(rect("#create")); await wait(2500);
 await caption("The unsigned transaction (PSBT) becomes an animated QR");
-await wait(3000);
+await wait(1500);
+await endClip();
+await wait(1500);
 
+await beginClip("sign");
 if (SIGNER === "pico") {
   await caption("3. Choose “Scan PSBT” and point the signer at the QR");
   await key(4, 800);
@@ -143,9 +178,12 @@ if (SIGNER === "pico") {
   await tapPhone(signer.locator("#confirm-sign"), 2000);
 }
 await caption("The signer shows the signed transaction as a QR");
-await wait(2500);
+await wait(2000);
+await endClip("#hww-window", "#qr");
+await wait(500);
 
 await caption("4. Scan the signed QR with the wallet camera");
+await beginClip("return");
 if (SIGNER === "pico") {
   await dragSignerBy(420, 0); await wait(600);
   await click(rect("#open-signed-scan")); await wait(1500);
@@ -157,7 +195,9 @@ if (SIGNER === "pico") {
 }
 await page.waitForFunction(() => !document.getElementById("wallet-screen-broadcast").hidden, null, { timeout: 30000 });
 await caption("The wallet received the signed transaction, ready to broadcast");
-await wait(3000);
+await wait(2500);
+await endClip(...SIGNER === "pico" ? ["#hww-window", "#wallet-camera-frame"] : ["#wallet-laptop"]);
+await wait(500);
 
 await caption("Only QR codes crossed the air gap. Try it yourself on this page");
 await wait(4000);
@@ -166,4 +206,5 @@ const video = page.video();
 await context.close();
 await browser.close();
 mkdirSync("out", { recursive: true });
-renameSync(await video.path(), `out/walkthrough-${SIGNER}.webm`);
+renameSync(await video.path(), `out/walkthrough-${SIGNER}${CLIPS ? "-clips" : ""}.webm`);
+if (CLIPS) writeFileSync(`out/clips-${SIGNER}.json`, JSON.stringify(clips, null, 1));

@@ -44,7 +44,7 @@ cd walkthrough && pnpm install
 CHROME=<path to a Chromium binary> node record.mjs pico http://localhost:8000/   # or bit-hanko
 ```
 
-The video lands in `walkthrough/out/`; the GIFs in `docs/` were made from it with ffmpeg at 640 px and 6 fps. The run needs a confirmed UTXO on one of the test wallets.
+With `CLIPS=1` it hides the captions and writes where each step happens; `node clips.mjs pico` then cuts the short clips the page's guide plays into `site/clips/`. The video lands in `walkthrough/out/`; the GIFs in `docs/` were made from it with ffmpeg at 640 px and 6 fps. The run needs a confirmed UTXO on one of the test wallets.
 
 ## Hosting
 
