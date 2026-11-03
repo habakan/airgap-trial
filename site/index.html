@@ -161,7 +161,7 @@ button:disabled { opacity:.45; cursor:default; }
 #beam-subject { fill:var(--subject-fill); stroke:var(--subject-color); stroke-width:4; }
 #beam-view-label-bg, #beam-subject-label-bg { fill:#171613; stroke:#fff; stroke-width:1.5; }
 #beam-view-label, #beam-subject-label { fill:#fff; font:700 13px system-ui,sans-serif; paint-order:stroke; stroke:#171613; stroke-width:2px; }
-@media (max-width:1240px) { .experience-layout { grid-template-columns:minmax(0,1fr); } .onboarding { position:static; grid-column:1; grid-row:1; width:auto; max-height:none; overflow:visible; } .flow { grid-column:1; grid-row:2; } .onboarding-header { flex-direction:row; align-items:center; } .onboarding-steps { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@media (max-width:1240px) { .experience-layout { grid-template-columns:minmax(0,1fr); } .onboarding { position:static; grid-column:1; grid-row:1; width:auto; max-height:none; overflow:visible; } .flow { grid-column:1; grid-row:2; } .onboarding-header { flex-direction:row; align-items:center; } .onboarding-steps { grid-template-columns:repeat(5,minmax(0,1fr)); } }
 @media (max-width:1080px) { .flow { grid-template-columns:1fr; } .wallet-laptop { width:min(100%,860px); margin:auto; } }
 @media (max-width:520px) { .wallet-app { height:540px; } .titlebar { gap:6px; padding:0 8px; } .titlebar > span:nth-child(2) { font-size:11px; } .network-badge { padding:3px 6px; font-size:10px; } .wallet-body { flex-direction:column; } .wallet-nav { flex:0 0 auto; flex-direction:row; gap:2px; padding:5px 4px; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); } .wallet-nav button { min-width:62px; min-height:42px; align-items:center; padding:4px 7px; text-align:center; } .wallet-nav button[aria-current="page"] { border-left:0; border-bottom:3px solid #347448; } .wallet-main { padding:8px; } .wallet-screen .wallet-qr-panel { padding:6px; } #signed-details { font-size:10px; } .wallet-receive-layout { grid-template-columns:minmax(0,1fr) 118px; } }
 @media (max-width:520px) { main { width:calc(100% - 12px); margin:6px auto 8px; padding:18px 10px 36px; } }
@@ -227,13 +227,14 @@ button:disabled { opacity:.45; cursor:default; }
 <section class="onboarding" aria-labelledby="onboarding-title">
   <div class="onboarding-header">
     <div><span class="onboarding-kicker">SIGNET 送金ガイド</span><h2 id="onboarding-title">送金の流れ</h2></div>
-    <span class="onboarding-count" id="onboarding-count">ステップ 1 / 4</span>
+    <span class="onboarding-count" id="onboarding-count">ステップ 1 / 5</span>
   </div>
   <ol class="onboarding-steps" aria-label="送金の進行状況">
     <li class="onboarding-step" data-onboarding-step="1"><span class="onboarding-step-number">1</span><span>ウォレット</span></li>
-    <li class="onboarding-step" data-onboarding-step="2"><span class="onboarding-step-number">2</span><span>送金内容</span></li>
-    <li class="onboarding-step" data-onboarding-step="3"><span class="onboarding-step-number">3</span><span>HWW署名</span></li>
-    <li class="onboarding-step" data-onboarding-step="4"><span class="onboarding-step-number">4</span><span>Signetへ送信</span></li>
+    <li class="onboarding-step" data-onboarding-step="2"><span class="onboarding-step-number">2</span><span>HWW準備</span></li>
+    <li class="onboarding-step" data-onboarding-step="3"><span class="onboarding-step-number">3</span><span>送金内容</span></li>
+    <li class="onboarding-step" data-onboarding-step="4"><span class="onboarding-step-number">4</span><span>HWW署名</span></li>
+    <li class="onboarding-step" data-onboarding-step="5"><span class="onboarding-step-number">5</span><span>Signetへ送信</span></li>
   </ol>
   <video class="onboarding-clip" id="onboarding-clip" muted loop playsinline hidden aria-label="この手順の操作例"></video>
   <div class="onboarding-action"><strong>次にすること</strong><p id="onboarding-instruction" aria-live="polite">残高と取引履歴を確認できます。送金は「送金」タブから始めます。</p></div>
@@ -449,7 +450,20 @@ const bitHankoModule = {
 };
 document.getElementById(usingBitHanko ? "use-bit-hanko" : "use-pico").setAttribute("aria-current", "page");
 signerFrame.classList.toggle("phone", usingBitHanko);
-signerFrame.addEventListener("load", () => { if (usingBitHanko) connectBitHankoCamera(); });
+signerFrame.addEventListener("load", () => { if (usingBitHanko) { connectBitHankoCamera(); watchBitHankoReady(); } });
+// BitHanko tells the page nothing, so its ready screen (with the fingerprint) marks the seed as loaded
+function watchBitHankoReady() {
+  const body = signerFrame.contentDocument.body;
+  const check = () => {
+    if (!body.querySelector("#fingerprint")) return;
+    observer.disconnect();
+    signerSeedLoaded = true;
+    renderOnboarding();
+  };
+  const observer = new MutationObserver(check);
+  observer.observe(body, { childList: true, subtree: true });
+  check();
+}
 let signerLanguage = "en";
 try { signerLanguage = localStorage.getItem("bitwasm-language") === "ja" ? "ja" : "en"; } catch {}
 function bitHankoUrl() { return `bit-hanko/index.html?lang=${signerLanguage}`; }
@@ -574,6 +588,7 @@ const translationPairs = [
   ["Signerで署名済みPSBTを表示し、Walletカメラで読み取ってください。", "Display the signed PSBT on the signer, then scan it with the wallet camera."],
   ["署名器の準備ができました。PSBTは作成できます。署名時に対応するSeedQRを読み込んでください。", "The signer is ready. You can create a PSBT; load the matching SeedQR when you are ready to sign."],
   ["残高と取引履歴を確認できます。送金は「送金」タブから始めます。", "Review your balance and transactions. Start a payment from the Send tab."],
+  ["まずSignerで選択中のSeedQRを読み込み、HWWを準備してください。", "First, load the selected SeedQR on the signer to set up the HWW."],
   ["受取用のアドレスとQRを表示しています。", "The receive address and QR code are shown here."],
   ["確定UTXOを確認できます。送金には金額と手数料を満たす1件が必要です。", "Review confirmed UTXOs. One output must cover the amount and fee."],
   ["Signetのデモ設定と安全上の注意を表示しています。", "Signet demo settings and safety information are shown here."],
@@ -587,6 +602,7 @@ const translationPairs = [
   ["完了", "Complete"],
   ["送金の進行状況", "Payment progress"],
   ["ウォレット", "Wallet"],
+  ["HWW準備", "Set up HWW"],
   ["送金内容", "Transaction"],
   ["HWW署名", "Sign on HWW"],
   ["Signetへ送信", "Broadcast"],
@@ -833,7 +849,7 @@ function translateUiText(value, language = pageLanguage) {
   let translated = trimmed;
   if (language === "en") {
     translated = translated
-      .replace(/^ステップ (\d+) \/ 4$/, "Step $1 of 4")
+      .replace(/^ステップ (\d+) \/ 5$/, "Step $1 of 5")
       .replace(/^UTXO照会に失敗しました \(HTTP (\d+)\)。$/, "UTXO lookup failed (HTTP $1).")
       .replace(/^送金元アドレスがdescriptorの受取\/変更アドレス（index 0〜(\d+)）にありません。$/, "Source address is not in the descriptor receive/change range (index 0–$1).")
       .replace(/^UR:CRYPTO-PSBT · (\d+)フレーム目（(\d+)枚）$/, "UR:CRYPTO-PSBT · frame $1 of $2")
@@ -853,7 +869,7 @@ function translateUiText(value, language = pageLanguage) {
       .replace(/^署名済みPSBTを読み取り中 · UR (.+)$/, "Reading signed PSBT · UR $1");
   } else {
     translated = translated
-      .replace(/^Step (\d+) of 4$/, "ステップ $1 / 4")
+      .replace(/^Step (\d+) of 5$/, "ステップ $1 / 5")
       .replace(/^UTXO lookup failed \(HTTP (\d+)\)\.$/, "UTXO照会に失敗しました (HTTP $1)。")
       .replace(/^Source address is not in the descriptor receive\/change range \(index 0–(\d+)\)\.$/, "送金元アドレスがdescriptorの受取/変更アドレス（index 0〜$1）にありません。")
       .replace(/^UR:CRYPTO-PSBT · frame (\d+) of (\d+)$/, "UR:CRYPTO-PSBT · $1フレーム目（$2枚）")
@@ -1582,7 +1598,8 @@ function showOnboardingClip(name) {
 
 function renderOnboarding() {
   const screen = walletScreens.find(item => !item.hidden)?.id;
-  let step = broadcasted ? 5 : rawTransaction ? 4 : activeTransaction ? 3 : wallet && source ? 2 : 1;
+  const done = [wallet && source, signerSeedLoaded || rawTransaction, activeTransaction || rawTransaction, rawTransaction, broadcasted].map(Boolean);
+  const step = broadcasted ? 5 : done.indexOf(false) + 1;
   let instruction;
   if (broadcasted) instruction = "取引をSignetに送信しました。TXIDからブロックエクスプローラーで確認できます。";
   else if (!wallet) instruction = seedMode === "demo" ? "デモウォレットの公開情報を読み込んでいます…" : "ウォレットのSeedQRを選択し、Signerで読み込んでください。";
@@ -1601,22 +1618,23 @@ function renderOnboarding() {
   else if (screen === "wallet-screen-address") {
     if (fundingLookupFailed) instruction = "確定残高を取得できませんでした。ネットワーク接続を確認し、「残高を再確認」を押してください。";
     else if (confirmedUtxoCount === 0) instruction = "この送金元アドレスには確定UTXOがありません。Signetテストコインを用意し、承認後に「残高を再確認」を押してください。";
+    else if (!signerSeedLoaded) instruction = "まずSignerで選択中のSeedQRを読み込み、HWWを準備してください。";
     else instruction = "残高と取引履歴を確認できます。送金は「送金」タブから始めます。";
   } else if (screen === "wallet-screen-compose") instruction = signerSeedLoaded
     ? "送金先アドレス、BTC金額、手数料率を入力し、内容を確認して「PSBTを作成」を押してください。"
     : "PSBTを作成できます。署名するときはSignerで選択中のSeedQRを読み込んでください。";
   else instruction = "送金内容を入力してPSBTを作成してください。";
   onboardingTitle.textContent = translateUiText(broadcasted ? "送金が完了しました" : "送金の流れ", pageLanguage);
-  onboardingCount.textContent = translateUiText(broadcasted ? "完了" : `ステップ ${step} / 4`, pageLanguage);
+  onboardingCount.textContent = translateUiText(broadcasted ? "完了" : `ステップ ${step} / 5`, pageLanguage);
   onboardingInstruction.textContent = translateUiText(instruction, pageLanguage);
   showOnboardingClip(broadcasted || rawTransaction || !wallet || !source ? null
-    : activeTransaction ? screen === "wallet-screen-scan-signed" ? "return" : usingBitHanko || signerSeedLoaded ? "sign" : "seed"
-    : screen === "wallet-screen-compose" ? "create"
-    : screen === "wallet-screen-address" && confirmedUtxoCount > 0 ? usingBitHanko || !signerSeedLoaded ? "seed" : "create"
+    : !signerSeedLoaded ? "seed"
+    : activeTransaction ? screen === "wallet-screen-scan-signed" ? "return" : "sign"
+    : screen === "wallet-screen-compose" || screen === "wallet-screen-address" && confirmedUtxoCount > 0 ? "create"
     : null);
   onboardingSteps.forEach(item => {
     const itemStep = Number(item.dataset.onboardingStep);
-    const state = itemStep < step ? "done" : itemStep === step ? "current" : "upcoming";
+    const state = done[itemStep - 1] ? "done" : itemStep === step ? "current" : "upcoming";
     item.dataset.state = state;
     if (state === "current") item.setAttribute("aria-current", "step");
     else item.removeAttribute("aria-current");
@@ -2228,7 +2246,7 @@ async function loadWalletFromDescriptor(descriptor, { watchOnly = false } = {}) 
       return;
     }
     wallet = nextWallet;
-    signerSeedLoaded = !watchOnly;
+    signerSeedLoaded ||= !watchOnly;
     sourceInput.value = derivedAddress;
     setWalletIdentity();
     result.hidden = true;
