@@ -31,6 +31,8 @@ a { color:inherit; }
 .onboarding-step[data-state="current"] { border-color:var(--accent); background:var(--bg); color:var(--fg); font-weight:650; }
 .onboarding-step[data-state="current"] .onboarding-step-number { border-color:var(--accent); background:var(--accent); color:var(--accent-fg); }
 .onboarding-step[data-state="done"] .onboarding-step-number { border-color:#3d7650; background:#3d7650; color:#fff; }
+.onboarding-clip { display:block; width:100%; max-height:260px; margin:0 0 12px; border-radius:8px; background:#1b1a17; object-fit:contain; }
+.onboarding-clip[hidden] { display:none; }
 .onboarding-action { padding:10px 12px; border-left:3px solid var(--accent); border-radius:0 7px 7px 0; background:var(--bg); }
 .onboarding-action strong { display:block; margin-bottom:3px; font-size:12px; }
 .onboarding-action p { margin:0; color:var(--fg); font-size:13px; }
@@ -233,6 +235,7 @@ button:disabled { opacity:.45; cursor:default; }
     <li class="onboarding-step" data-onboarding-step="3"><span class="onboarding-step-number">3</span><span>HWW署名</span></li>
     <li class="onboarding-step" data-onboarding-step="4"><span class="onboarding-step-number">4</span><span>Signetへ送信</span></li>
   </ol>
+  <video class="onboarding-clip" id="onboarding-clip" muted loop playsinline hidden aria-label="この手順の操作例"></video>
   <div class="onboarding-action"><strong>次にすること</strong><p id="onboarding-instruction" aria-live="polite">残高と取引履歴を確認できます。送金は「送金」タブから始めます。</p></div>
 </section>
 <div class="flow">
@@ -473,6 +476,8 @@ const onboardingTitle = document.getElementById("onboarding-title");
 const onboardingCount = document.getElementById("onboarding-count");
 const onboardingInstruction = document.getElementById("onboarding-instruction");
 const onboardingSteps = [...document.querySelectorAll("[data-onboarding-step]")];
+const onboardingClip = document.getElementById("onboarding-clip");
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const receivePreview = document.getElementById("receive-preview");
 const receiveContext = receivePreview.getContext("2d", { willReadFrequently: true });
 const receiveDecodeCanvas = Object.assign(document.createElement("canvas"), { width: 640, height: 480 });
@@ -576,6 +581,8 @@ const translationPairs = [
   ["SIGNET 送金ガイド", "SIGNET PAYMENT GUIDE"],
   ["送金の流れ", "Payment flow"],
   ["次にすること", "What to do next"],
+  ["この手順の操作例", "How this step looks"],
+  ["PSBT作成済みです。Signerで選択中のSeedQRを読み込み、続けて「Scan PSBT」を選んでください。", "The PSBT is ready. Load the selected SeedQR on the signer, then choose “Scan PSBT”."],
   ["送金が完了しました", "Payment complete"],
   ["完了", "Complete"],
   ["送金の進行状況", "Payment progress"],
@@ -1562,6 +1569,17 @@ function showWalletSection(section) {
   showWalletScreen(id);
 }
 
+// Clips recorded by walkthrough/record.mjs with CLIPS=1; the UI in them is in English
+function showOnboardingClip(name) {
+  const src = name ? `clips/${usingBitHanko ? "bit-hanko" : "pico"}-${name}.mp4` : null;
+  if (onboardingClip.getAttribute("src") === src) return;
+  onboardingClip.hidden = !src;
+  if (!src) { onboardingClip.removeAttribute("src"); onboardingClip.load(); return; }
+  onboardingClip.src = src;
+  onboardingClip.controls = reducedMotion;
+  if (!reducedMotion) onboardingClip.play().catch(() => {});
+}
+
 function renderOnboarding() {
   const screen = walletScreens.find(item => !item.hidden)?.id;
   let step = broadcasted ? 5 : rawTransaction ? 4 : activeTransaction ? 3 : wallet && source ? 2 : 1;
@@ -1591,6 +1609,11 @@ function renderOnboarding() {
   onboardingTitle.textContent = translateUiText(broadcasted ? "送金が完了しました" : "送金の流れ", pageLanguage);
   onboardingCount.textContent = translateUiText(broadcasted ? "完了" : `ステップ ${step} / 4`, pageLanguage);
   onboardingInstruction.textContent = translateUiText(instruction, pageLanguage);
+  showOnboardingClip(broadcasted || rawTransaction || !wallet || !source ? null
+    : activeTransaction ? screen === "wallet-screen-scan-signed" ? "return" : usingBitHanko || signerSeedLoaded ? "sign" : "seed"
+    : screen === "wallet-screen-compose" ? "create"
+    : screen === "wallet-screen-address" && confirmedUtxoCount > 0 ? usingBitHanko || !signerSeedLoaded ? "seed" : "create"
+    : null);
   onboardingSteps.forEach(item => {
     const itemStep = Number(item.dataset.onboardingStep);
     const state = itemStep < step ? "done" : itemStep === step ? "current" : "upcoming";
