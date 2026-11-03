@@ -2,6 +2,14 @@
 
 Try an air-gapped Bitcoin transaction in the browser, on signet, with a public test seed. Never use it for coins with value.
 
+**[Open the trial](https://habakan.github.io/airgap-trial/)** · [with BitHanko](https://habakan.github.io/airgap-trial/?signer=bit-hanko)
+
+| Pico | BitHanko |
+|---|---|
+| <img src="docs/walkthrough-pico.gif" alt="Walkthrough with the Pico signer" width="400"> | <img src="docs/walkthrough-bit-hanko.gif" alt="Walkthrough with BitHanko" width="400"> |
+
+Both walkthroughs stop before broadcasting, and play at 1.5× speed.
+
 The page is a demo wallet with a signer beside it, either Pico or BitHanko. The two exchange the transaction only as QR codes. The BitHanko demo itself is not modified: the page answers its camera request with whatever part of the wallet's QR is inside the phone's aiming frame, and decodes the signed QR it displays.
 
 ## Layout
@@ -36,7 +44,7 @@ cd walkthrough && pnpm install
 CHROME=<path to a Chromium binary> node record.mjs pico http://localhost:8000/   # or bit-hanko
 ```
 
-The video lands in `walkthrough/out/`. The run needs a confirmed UTXO on one of the test wallets.
+The video lands in `walkthrough/out/`; the GIFs in `docs/` were made from it with ffmpeg at 640 px and 6 fps. The run needs a confirmed UTXO on one of the test wallets.
 
 ## Hosting
 
