@@ -27,6 +27,17 @@ python3 -m http.server -d dist
 
 The build fails if a local path ends up in `dist`.
 
+## Walkthrough video
+
+`walkthrough/record.mjs` drives the trial with the Pico signer in headless Chromium and records it, from loading the test SeedQR to broadcasting on signet. Serve `dist` first, then:
+
+```sh
+cd walkthrough && pnpm install
+CHROME=<path to a Chromium binary> node record.mjs http://localhost:8000/
+```
+
+The video lands in `walkthrough/out/`. `BROADCAST=0` stops before broadcasting. The run needs a confirmed UTXO on test wallet A.
+
 ## Hosting
 
 Publish this from an origin that does not also serve a signer holding real seeds. Pages under one `github.io` account share an origin, and so share browser storage.
